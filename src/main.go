@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -18,7 +19,19 @@ var sqlString string = "gimvic:GimVicServer@/gimvic"
 var api_key string = "ede5e730-8464-11e3-baa7-0800200c9a66"
 
 func main() {
-	updateSchedule()
+	if len(os.Args) <= 1 {
+		fmt.Println("Add argument sch or sub!")
+		os.Exit(1)
+	}
+	arg := os.Args[1]
+	if arg == "sch" {
+		updateSchedule()
+	} else if arg == "sub" {
+		updateSubstitutions()
+	} else {
+		fmt.Println("Add argument sch or sub!")
+		os.Exit(1)
+	}
 }
 
 func updateSchedule() {
@@ -27,8 +40,8 @@ func updateSchedule() {
 	allHash := hash(all)
 	if isNew("schedule", allHash) {
 		scheduleDataStr := all[strings.Index(all, "podatki[0][0]") : strings.Index(all, "razredi")-1]
-		//classesDataStr := all[strings.Index(all, "razredi") : strings.Index(all, "ucitelji")-1]
-		//teachersDataStr := all[strings.Index(all, "ucitelji") : strings.Index(all, "ucilnice")-1]
+		classesDataStr := all[strings.Index(all, "razredi") : strings.Index(all, "ucitelji")-1]
+		teachersDataStr := all[strings.Index(all, "ucitelji") : strings.Index(all, "ucilnice")-1]
 
 		//schedule data parsing
 		scheduleSections := strings.Split(scheduleDataStr, ";")
@@ -40,12 +53,12 @@ func updateSchedule() {
 		for _, section := range scheduleSections {
 			lines := strings.Split(section, "\n")
 			lines = clearUselessScheduleLines(lines)
-			class := extractValueFromScheduleLine(lines[1], true)
-			teacher := extractValueFromScheduleLine(lines[2], true)
-			subject := extractValueFromScheduleLine(lines[3], true)
-			classroom := extractValueFromScheduleLine(lines[4], true)
-			dayStr := extractValueFromScheduleLine(lines[5], false)
-			lessonStr := extractValueFromScheduleLine(lines[5], false)
+			class := extractValueFromLine(lines[1], true)
+			teacher := extractValueFromLine(lines[2], true)
+			subject := extractValueFromLine(lines[3], true)
+			classroom := extractValueFromLine(lines[4], true)
+			dayStr := extractValueFromLine(lines[5], false)
+			lessonStr := extractValueFromLine(lines[5], false)
 			day, err := strconv.Atoi(dayStr)
 			check(err)
 			lesson, err := strconv.Atoi(lessonStr)
@@ -56,6 +69,30 @@ func updateSchedule() {
 		}
 
 		//classes parsing
+		lines := strings.Split(classesDataStr, "\n")[1:]
+		_, err = db.Exec("truncate table classes;")
+		check(err)
+		for _, line := range lines {
+			class := extractValueFromLine(line, true)
+			main := "0"
+			if len(class) == 2 {
+				main = "1"
+			}
+			_, err = db.Exec("insert into classes(class, main) values ('" + class + "', " + main + ");")
+			check(err)
+		}
+
+		//teachers parsing
+		lines = strings.Split(teachersDataStr, "\n")[1:]
+		_, err = db.Exec("truncate table teachers;")
+		check(err)
+		for _, line := range lines {
+			teacher := extractValueFromLine(line, true)
+			_, err = db.Exec("insert into teachers(teacher) values ('" + teacher + "');")
+			check(err)
+		}
+
+		//update schedule hash
 		_, err = db.Exec("update hash set hash='" + allHash + "' where source='schedule';")
 		check(err)
 		db.Close()
@@ -63,6 +100,9 @@ func updateSchedule() {
 }
 
 func isNew(source, hash string) bool {
+	//debug
+	//return true
+
 	con, err := sql.Open("mysql", sqlString)
 	check(err)
 	defer con.Close()
@@ -100,9 +140,9 @@ func clearUselessScheduleLines(lines []string) []string {
 	return lines[start:stop]
 }
 
-func extractValueFromScheduleLine(line string, quoted bool) string {
+func extractValueFromLine(line string, quoted bool) string {
 	if quoted {
-		return line[strings.Index(line, "\"")+1 : len(line)-2]
+		return line[strings.Index(line, "\"")+1 : strings.LastIndex(line, "\"")]
 	} else {
 		return line[strings.LastIndex(line, " ")+1 : len(line)-1]
 	}
