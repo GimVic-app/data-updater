@@ -199,3 +199,33 @@ func check(err error) {
 		panic(err)
 	}
 }
+
+type SubstitutionsStruct struct {
+	Substitutions    []Substitution   `json:"nadomescanja"`
+	SubjectExchanges SubjectExchanges `json:"menjava_predmeta"`
+}
+
+type Substitution struct {
+	AbsentTeacher       string               `json:"odsoten_fullname"`
+	SubstitutionLessons []SubstitutionLesson `json:"nadomescanja_ure"`
+}
+
+type SubstitutionLesson struct {
+	LessonStr    string `json:"ura"`
+	ClassroomStr string `json:"ucilnica"`
+	Class        string `json:"ura"`
+	Replacement  string `json:"nadomesca_full_name"`
+	Subject      string `json:"predmet"`
+	Note         string `json:"opomba"`
+}
+
+func (s SubstitutionLesson) Lesson() int {
+	return strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
+}
+
+func (s SubstitutionLesson) Classroom() int {
+	return strconv.Atoi(s.LessonStr)
+}
+
+type SubjectExchanges struct {
+}
