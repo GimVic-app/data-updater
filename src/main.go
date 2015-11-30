@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/now"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -19,7 +20,11 @@ import (
 var sqlString string = "gimvic:GimVicServer@/gimvic"
 var api_key string = "ede5e730-8464-11e3-baa7-0800200c9a66"
 
+var schTeachers []string
+
 func main() {
+	now.FirstDayMonday = true
+
 	if len(os.Args) <= 1 {
 		fmt.Println("Add argument sch or sub!")
 		os.Exit(1)
@@ -36,9 +41,43 @@ func main() {
 }
 
 func updateSubstitutions() {
-	data := getSubstitutionsForDate(time.Now())
-	fmt.Println(data.LessonExchanges[0].Teacher())
+	currentDate := now.BeginningOfWeek()
+	oneDay := time.Date(2015, 11, 30, 0, 0, 0, 0, time.UTC).Sub(time.Date(2015, 11, 29, 0, 0, 0, 0, time.UTC))
+
+	//parsing each day od substitutions in next 10 days
+	for i := 0; i < 10; i++ {
+		data := getSubstitutionsForDate(currentDate)
+
+		if data.DateStr != "" {
+			db, err := sql.Open("mysql", sqlString)
+			check(err)
+			_, err = db.Exec("delete from substitutions where date='" + data.DateStr + "';")
+			check(err)
+
+			//parsing normal substitutions
+			for _, substutution := range data.Substitutions {
+				for _, substututionLesson := range substutution.SubstitutionLessons {
+					values := "'" + parseSubstitutionsClass(substututionLesson.Class) + "', '" + substTeacherToSchTeacher(substututionLesson.Teacher) + "', '" + substututionLesson.Subject + "', '" + substututionLesson.Classroom + "', " + strconv.Itoa(substututionLesson.Lesson()) + ", '" + substututionLesson.Note + "', '" + data.DateStr + "'"
+					_, err = db.Exec("insert into substitutions(class, teacher, subject, classroom, lesson, note, date) values (" + values + ");")
+					check(err)
+				}
+			}
+		}
+
+		//add 1 day
+		currentDate = currentDate.Add(oneDay)
+	}
 }
+
+func parseSubstitutionsClass(original string) string {
+	if len(original) > 4 {
+		original = original[:strings.Index(original, "-")-1]
+	}
+	original = strings.Replace(original, " ", "", -1)
+	original = strings.Replace(original, ".", "", -1)
+	return strings.ToUpper(original)
+}
+
 func getSubstitutionsForDate(date time.Time) SubstitutionsStruct {
 	nonsense := randStr(32)
 	dateStr := strconv.Itoa(date.Year()) + "-" + strconv.Itoa(int(date.Month())) + "-" + strconv.Itoa(date.Day())
@@ -51,7 +90,17 @@ func getSubstitutionsForDate(date time.Time) SubstitutionsStruct {
 	data := SubstitutionsStruct{}
 	err := json.Unmarshal([]byte(jsonStr), &data)
 	check(err)
-	return data
+
+	jsonHash := hash(jsonStr)
+	if isNew(data.DateStr, jsonHash) {
+		//update hash
+		db, err := sql.Open("mysql", sqlString)
+		check(err)
+		_, err = db.Exec("REPLACE into hash (hash, source) values('" + jsonHash + "', '" + data.DateStr + "')")
+		check(err)
+		return data
+	}
+	return SubstitutionsStruct{}
 }
 
 func updateSchedule() {
@@ -121,7 +170,7 @@ func updateSchedule() {
 
 func isNew(source, hash string) bool {
 	//debug
-	//return true
+	return true
 
 	con, err := sql.Open("mysql", sqlString)
 	check(err)
@@ -156,6 +205,119 @@ func extractValueFromLine(line string, quoted bool) string {
 	} else {
 		return line[strings.LastIndex(line, " ")+1 : len(line)-1]
 	}
+}
+
+func substTeacherToSchTeacher(substTeacher string) string {
+	//fill schTeachers array from mysql
+	if len(schTeachers) == 0 {
+		con, err := sql.Open("mysql", sqlString)
+		check(err)
+		defer con.Close()
+		rows, err := con.Query("select teacher from teachers;")
+		check(err)
+
+		for rows.Next() {
+			var temp string
+			rows.Scan(&temp)
+			schTeachers = append(schTeachers, temp)
+		}
+	}
+
+	for _, schTeacher := range schTeachers {
+		if areTeachersSame(substTeacher, schTeacher) {
+			return schTeacher
+		}
+	}
+	return substTeacher
+}
+
+func areTeachersSame(substitutions, schedule string) bool {
+	substitutions = strings.ToLower(substitutions)
+	schedule = strings.ToLower(schedule)
+
+	//for special case Saračevć
+	if (strings.Contains(substitutions, "saračevič") || strings.Contains(substitutions, "saračević")) && (strings.Contains(schedule, "saračevič") || strings.Contains(schedule, "saračević")) {
+		return true
+	}
+
+	substArr := strings.Split(substitutions, " ")
+	schArr := strings.Split(schedule, " ")
+
+	if len(substArr) == 2 {
+		return compare2Teachers(substArr, schArr)
+	} else {
+		return compare3Teachers(substitutions, schedule)
+	}
+}
+
+func compare2Teachers(substitutions, schedule []string) bool {
+	//if any is same
+	for _, temp := range substitutions {
+		if temp == schedule[0] {
+			return true
+		}
+	}
+
+	temp := ""
+
+	//if the first one is surname
+	substring := substitutions[1][:1]
+	temp = substring + substitutions[0]
+	if temp == schedule[0] {
+		return true
+	}
+
+	//and vice versa
+	temp = substitutions[0] + substring
+	if temp == schedule[0] {
+		return true
+	}
+
+	//if the second one is surname
+	substring = substitutions[0][:1]
+	temp = substitutions[1] + substring
+	if temp == schedule[0] {
+		return true
+	}
+
+	//and vice versa
+	temp = substring + substitutions[1]
+	if temp == schedule[0] {
+		return true
+	}
+
+	//and for Bajec and other special cases using spaces
+	//if the first one is surname
+	substring = substitutions[1][:1]
+	temp = substring + " " + substitutions[0]
+	if temp == schedule[0] {
+		return true
+	}
+
+	//and vice versa
+	temp = substitutions[0] + " " + substring
+	if temp == schedule[0] {
+		return true
+	}
+
+	//if the second one is surname
+	substring = substitutions[0][:1]
+	temp = substitutions[1] + " " + substring
+	if temp == schedule[0] {
+		return true
+	}
+
+	//and vice versa
+	temp = substring + " " + substitutions[1]
+	if temp == schedule[0] {
+		return true
+	}
+
+	return false
+}
+
+func compare3Teachers(substitutions, schedule string) bool {
+	return strings.Contains(substitutions, schedule)
 }
 
 func getTextFromUrl(url string) string {
@@ -215,6 +377,7 @@ type SubstitutionsStruct struct {
 	SubjectExchanges   []SubjectExchange   `json:"menjava_predmeta"`
 	LessonExchanges    []LessonExchange    `json:"menjava_ur"`
 	ClassroomExchanges []ClassroomExchange `json:"menjava_ucilnic"`
+	DateStr            string              `json:"datum"`
 }
 
 type Substitution struct {
