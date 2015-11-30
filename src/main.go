@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"io/ioutil"
@@ -124,8 +125,13 @@ func updateSubstitutions() {
 	signature_string := "solsis.gimvic.org" + "||" + params + "||" + api_key
 	signature := hash(signature_string)
 	url := "https://solsis.gimvic.org/?" + params + "&signature=" + signature
+	jsonStr := getTextFromUrl(url)
 
-	fmt.Println(getTextFromUrl(url))
+	data := SubstitutionsStruct{}
+	err := json.Unmarshal([]byte(jsonStr), &data)
+	check(err)
+
+	fmt.Println(data)
 }
 
 func clearUselessScheduleLines(lines []string) []string {
@@ -201,8 +207,8 @@ func check(err error) {
 }
 
 type SubstitutionsStruct struct {
-	Substitutions    []Substitution   `json:"nadomescanja"`
-	SubjectExchanges SubjectExchanges `json:"menjava_predmeta"`
+	Substitutions    []Substitution     `json:"nadomescanja"`
+	SubjectExchanges []SubjectExchanges `json:"menjava_predmeta"`
 }
 
 type Substitution struct {
@@ -220,11 +226,15 @@ type SubstitutionLesson struct {
 }
 
 func (s SubstitutionLesson) Lesson() int {
-	return strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
+	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
+	check(err)
+	return result
 }
 
 func (s SubstitutionLesson) Classroom() int {
-	return strconv.Atoi(s.LessonStr)
+	result, err := strconv.Atoi(s.LessonStr)
+	check(err)
+	return result
 }
 
 type SubjectExchanges struct {
