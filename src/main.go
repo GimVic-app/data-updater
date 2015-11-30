@@ -57,10 +57,31 @@ func updateSubstitutions() {
 			//parsing normal substitutions
 			for _, substutution := range data.Substitutions {
 				for _, substututionLesson := range substutution.SubstitutionLessons {
-					values := "'" + parseSubstitutionsClass(substututionLesson.Class) + "', '" + substTeacherToSchTeacher(substututionLesson.Teacher) + "', '" + substututionLesson.Subject + "', '" + substututionLesson.Classroom + "', " + strconv.Itoa(substututionLesson.Lesson()) + ", '" + substututionLesson.Note + "', '" + data.DateStr + "'"
-					_, err = db.Exec("insert into substitutions(class, teacher, subject, classroom, lesson, note, date) values (" + values + ");")
+					values := "'" + parseSubstitutionsClass(substututionLesson.Class) + "', '" + substTeacherToSchTeacher(substututionLesson.Teacher) + "', '" + substTeacherToSchTeacher(substutution.AbsentTeacher) + "', '" + substututionLesson.Subject + "', '" + substututionLesson.Classroom + "', " + strconv.Itoa(substututionLesson.Lesson()) + ", '" + substututionLesson.Note + "', '" + data.DateStr + "'"
+					_, err = db.Exec("insert into substitutions(class, teacher, absent_teacher, subject, classroom, lesson, note, date) values (" + values + ");")
 					check(err)
 				}
+			}
+
+			//parsing subject exchange
+			for _, exchange := range data.SubjectExchanges {
+				values := "'" + parseSubstitutionsClass(exchange.Class) + "', '" + substTeacherToSchTeacher(exchange.Teacher) + "', '" + exchange.Subject + "', '" + exchange.Classroom + "', " + strconv.Itoa(exchange.Lesson()) + ", '" + exchange.Note + "', '" + data.DateStr + "'"
+				_, err = db.Exec("insert into substitutions(class, teacher, subject, classroom, lesson, note, date) values (" + values + ");")
+				check(err)
+			}
+
+			//parsing lesson exchange
+			for _, exchange := range data.LessonExchanges {
+				values := "'" + parseSubstitutionsClass(exchange.Class) + "', '" + substTeacherToSchTeacher(exchange.Teachers()[1]) + "', '" + substTeacherToSchTeacher(exchange.Teachers()[0]) + "', '" + exchange.Subject() + "', '" + exchange.Classroom + "', " + strconv.Itoa(exchange.Lesson()) + ", '" + exchange.Note + "', '" + data.DateStr + "'"
+				_, err = db.Exec("insert into substitutions(class, teacher, absent_teacher, subject, classroom, lesson, note, date) values (" + values + ");")
+				check(err)
+			}
+
+			//parsing subject exchange
+			for _, exchange := range data.ClassroomExchanges {
+				values := "'" + parseSubstitutionsClass(exchange.Class) + "', '" + substTeacherToSchTeacher(exchange.Teacher) + "', '" + exchange.Subject + "', '" + exchange.Classroom + "', " + strconv.Itoa(exchange.Lesson()) + ", '" + exchange.Note + "', '" + data.DateStr + "'"
+				_, err = db.Exec("insert into substitutions(class, teacher, subject, classroom, lesson, note, date) values (" + values + ");")
+				check(err)
 			}
 		}
 
@@ -70,7 +91,7 @@ func updateSubstitutions() {
 }
 
 func parseSubstitutionsClass(original string) string {
-	if len(original) > 4 {
+	if len(original) > 4 && strings.Contains(original, "-") {
 		original = original[:strings.Index(original, "-")-1]
 	}
 	original = strings.Replace(original, " ", "", -1)
@@ -416,7 +437,7 @@ type ClassroomExchange struct {
 	LessonStr string `json:"ura"`
 	Classroom string `json:"ucilnica_to"`
 	Class     string `json:"class_name"`
-	Teacher   string `json:"nadomesca_full_name"`
+	Teacher   string `json:"ucitelj"`
 	Subject   string `json:"predmet"`
 	Note      string `json:"opomba"`
 }
@@ -442,8 +463,12 @@ func (s ClassroomExchange) Lesson() int {
 	return result
 }
 
-func (s LessonExchange) Teacher() string {
-	return s.TeacherExchange[strings.LastIndex(s.TeacherExchange, "-> ")+3:]
+func (s LessonExchange) Teachers() []string {
+	result := strings.Split(s.TeacherExchange, " -> ")
+	if len(result) == 1 {
+		result = append(result, result[0])
+	}
+	return result
 }
 
 func (s LessonExchange) Subject() string {
