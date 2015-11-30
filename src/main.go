@@ -35,6 +35,25 @@ func main() {
 	}
 }
 
+func updateSubstitutions() {
+	data := getSubstitutionsForDate(time.Now())
+	fmt.Println(data.LessonExchanges[0].Teacher())
+}
+func getSubstitutionsForDate(date time.Time) SubstitutionsStruct {
+	nonsense := randStr(32)
+	dateStr := strconv.Itoa(date.Year()) + "-" + strconv.Itoa(int(date.Month())) + "-" + strconv.Itoa(date.Day())
+	params := "func=gateway&call=suplence&datum=" + dateStr + "&nonsense=" + nonsense
+	signature_string := "solsis.gimvic.org" + "||" + params + "||" + api_key
+	signature := hash(signature_string)
+	url := "https://solsis.gimvic.org/?" + params + "&signature=" + signature
+	jsonStr := getTextFromUrl(url)
+
+	data := SubstitutionsStruct{}
+	err := json.Unmarshal([]byte(jsonStr), &data)
+	check(err)
+	return data
+}
+
 func updateSchedule() {
 	//text gets downloaded and splitet into relevant parts
 	all := getTextFromUrl("https://dl.dropboxusercontent.com/u/16258361/urnik/data.js")
@@ -117,21 +136,6 @@ func isNew(source, hash string) bool {
 		return false
 	}
 	return true
-}
-
-func updateSubstitutions() {
-	nonsense := randStr(32)
-	params := "func=gateway&call=suplence&datum=2015-11-30&nonsense=" + nonsense
-	signature_string := "solsis.gimvic.org" + "||" + params + "||" + api_key
-	signature := hash(signature_string)
-	url := "https://solsis.gimvic.org/?" + params + "&signature=" + signature
-	jsonStr := getTextFromUrl(url)
-
-	data := SubstitutionsStruct{}
-	err := json.Unmarshal([]byte(jsonStr), &data)
-	check(err)
-
-	fmt.Println(data.LessonExchanges[0].Teacher())
 }
 
 func clearUselessScheduleLines(lines []string) []string {
