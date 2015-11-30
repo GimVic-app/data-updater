@@ -131,7 +131,7 @@ func updateSubstitutions() {
 	err := json.Unmarshal([]byte(jsonStr), &data)
 	check(err)
 
-	fmt.Println(data)
+	fmt.Println(data.LessonExchanges[0].Teacher())
 }
 
 func clearUselessScheduleLines(lines []string) []string {
@@ -207,8 +207,10 @@ func check(err error) {
 }
 
 type SubstitutionsStruct struct {
-	Substitutions    []Substitution     `json:"nadomescanja"`
-	SubjectExchanges []SubjectExchanges `json:"menjava_predmeta"`
+	Substitutions      []Substitution      `json:"nadomescanja"`
+	SubjectExchanges   []SubjectExchange   `json:"menjava_predmeta"`
+	LessonExchanges    []LessonExchange    `json:"menjava_ur"`
+	ClassroomExchanges []ClassroomExchange `json:"menjava_ucilnic"`
 }
 
 type Substitution struct {
@@ -217,12 +219,39 @@ type Substitution struct {
 }
 
 type SubstitutionLesson struct {
-	LessonStr    string `json:"ura"`
-	ClassroomStr string `json:"ucilnica"`
-	Class        string `json:"ura"`
-	Replacement  string `json:"nadomesca_full_name"`
-	Subject      string `json:"predmet"`
-	Note         string `json:"opomba"`
+	LessonStr string `json:"ura"`
+	Classroom string `json:"ucilnica"`
+	Class     string `json:"class_name"`
+	Teacher   string `json:"nadomesca_full_name"`
+	Subject   string `json:"predmet"`
+	Note      string `json:"opomba"`
+}
+
+type SubjectExchange struct {
+	LessonStr string `json:"ura"`
+	Classroom string `json:"ucilnica"`
+	Class     string `json:"class_name"`
+	Teacher   string `json:"ucitelj"`
+	Subject   string `json:"predmet"`
+	Note      string `json:"opomba"`
+}
+
+type LessonExchange struct {
+	Class           string `json:"class_name"`
+	LessonStr       string `json:"ura"`
+	TeacherExchange string `json:"zamenjava_uciteljev"`
+	SubjectExchange string `json:"predmet"`
+	Classroom       string `json:"ucilnica"`
+	Note            string `json:"opomba"`
+}
+
+type ClassroomExchange struct {
+	LessonStr string `json:"ura"`
+	Classroom string `json:"ucilnica_to"`
+	Class     string `json:"class_name"`
+	Teacher   string `json:"nadomesca_full_name"`
+	Subject   string `json:"predmet"`
+	Note      string `json:"opomba"`
 }
 
 func (s SubstitutionLesson) Lesson() int {
@@ -230,12 +259,26 @@ func (s SubstitutionLesson) Lesson() int {
 	check(err)
 	return result
 }
-
-func (s SubstitutionLesson) Classroom() int {
-	result, err := strconv.Atoi(s.LessonStr)
+func (s SubjectExchange) Lesson() int {
+	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
+	check(err)
+	return result
+}
+func (s LessonExchange) Lesson() int {
+	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
+	check(err)
+	return result
+}
+func (s ClassroomExchange) Lesson() int {
+	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
 	check(err)
 	return result
 }
 
-type SubjectExchanges struct {
+func (s LessonExchange) Teacher() string {
+	return s.TeacherExchange[strings.LastIndex(s.TeacherExchange, "-> ")+3:]
+}
+
+func (s LessonExchange) Subject() string {
+	return s.SubjectExchange[strings.LastIndex(s.SubjectExchange, "-> ")+3:]
 }
