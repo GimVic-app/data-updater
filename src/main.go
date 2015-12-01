@@ -183,7 +183,7 @@ func updateSchedule() {
 		}
 
 		//update schedule hash
-		_, err = db.Exec("update hash set hash='" + allHash + "' where source='schedule';")
+		_, err = db.Exec("REPLACE into hash (hash, source) values('" + allHash + "', 'schedule');")
 		check(err)
 		db.Close()
 	}
