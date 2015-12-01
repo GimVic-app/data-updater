@@ -148,7 +148,7 @@ func updateSchedule() {
 			subject := extractValueFromLine(lines[3], true)
 			classroom := extractValueFromLine(lines[4], true)
 			dayStr := extractValueFromLine(lines[5], false)
-			lessonStr := extractValueFromLine(lines[5], false)
+			lessonStr := extractValueFromLine(lines[6], false)
 			day, err := strconv.Atoi(dayStr)
 			check(err)
 			lesson, err := strconv.Atoi(lessonStr)
