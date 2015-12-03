@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"database/sql"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -34,6 +35,8 @@ func main() {
 		updateSchedule()
 	} else if arg == "sub" {
 		updateSubstitutions()
+	} else if arg == "menu" {
+		parseMenu(os.Args)
 	} else {
 		fmt.Println("Add argument sch or sub!")
 		os.Exit(1)
@@ -186,6 +189,38 @@ func updateSchedule() {
 		_, err = db.Exec("REPLACE into hash (hash, source) values('" + allHash + "', 'schedule');")
 		check(err)
 		db.Close()
+	}
+}
+
+func parseMenu(args []string) {
+	//check for file argument
+	if len(os.Args) < 3 {
+		fmt.Println("Specifiy the file!")
+	} else {
+		fileArg := os.Args[2]
+
+		if isMenuValid(fileArg) {
+			csvfile, err := os.Open(fileArg)
+			defer csvfile.Close()
+			check(err)
+
+			reader := csv.NewReader(csvfile)
+			reader.Comma = ';'
+			reader.FieldsPerRecord = -1
+			rawCSVdata, err := reader.ReadAll()
+			check(err)
+
+			secNumbers, Snack := getSectionNumbers(rawCSVdata)
+
+			if Snack {
+				processSnack(rawCSVdata, secNumbers)
+			} else {
+				processLunch(rawCSVdata, secNumbers)
+			}
+
+		} else {
+			panic("Invalid menu!")
+		}
 	}
 }
 
@@ -385,6 +420,138 @@ func randStr(n int) string {
 	}
 
 	return string(b)
+}
+
+//provides table sections and type (Snack = true, Lunch = false)
+func getSectionNumbers(csv [][]string) ([]int, bool) {
+	var result []int
+	var Snack bool
+
+	for i, line := range csv {
+		if strings.Contains(strings.ToLower(line[1]), "navadna") || strings.Contains(strings.ToLower(line[1]), "Lunch") {
+			result = append(result, i)
+			if strings.Contains(line[1], "navadna") {
+				Snack = true
+			}
+		}
+	}
+
+	return result, Snack
+}
+
+func processSnack(table [][]string, selNumbers []int) {
+
+	for i, num := range selNumbers {
+		if i+1 == len(selNumbers) {
+			processSnackSel(table[num:len(table)])
+		} else {
+			processSnackSel(table[num:selNumbers[i+1]])
+		}
+	}
+}
+
+func processSnackSel(sel [][]string) {
+	date := findDate(sel)
+
+	var normal, veg, veg_per, sadnozel string
+	for i := 1; i < len(sel); i++ {
+		if sel[i][1] != "" {
+			if normal != "" {
+				normal += ";"
+			}
+			normal += sel[i][1]
+		}
+		if sel[i][2] != "" {
+			if veg_per != "" {
+				veg_per += ";"
+			}
+			veg_per += sel[i][2]
+		}
+		if sel[i][3] != "" {
+			if veg != "" {
+				veg += ";"
+			}
+			veg += sel[i][3]
+		}
+		if sel[i][4] != "" {
+			if sadnozel != "" {
+				sadnozel += ";"
+			}
+			sadnozel += sel[i][4]
+		}
+	}
+
+	con, err := sql.Open("mysql", sqlString)
+	check(err)
+	defer con.Close()
+
+	_, err = con.Exec("insert into snack (date, normal,  veg_per, veg, sadnozel) values (?, ?, ?, ?, ?)", date, normal, veg_per, veg, sadnozel)
+	check(err)
+
+}
+
+func processLunchSel(sel [][]string) {
+	date := findDate(sel)
+
+	var normal, veg string
+	for i := 1; i < len(sel); i++ {
+		if sel[i][1] != "" {
+			if normal != "" {
+				normal += ";"
+			}
+			normal += sel[i][1]
+		}
+		if sel[i][2] != "" {
+			if veg != "" {
+				veg += ";"
+			}
+			veg += sel[i][2]
+		}
+	}
+
+	con, err := sql.Open("mysql", sqlString)
+	check(err)
+	defer con.Close()
+
+	_, err = con.Exec("insert into lunch (date, normal, veg) values (?, ?)", date, normal, veg)
+	check(err)
+
+}
+
+func processLunch(table [][]string, selNumbers []int) {
+	for i, num := range selNumbers {
+		if i+1 == len(selNumbers) {
+			processLunchSel(table[num:len(table)])
+		} else {
+			processLunchSel(table[num:selNumbers[i+1]])
+		}
+	}
+
+	fmt.Println("Parser done processing Lunch.\n")
+}
+
+func findDate(sel [][]string) time.Time {
+	var index int = 0
+	for i, line := range sel {
+		cell := strings.ToLower(line[0])
+		if strings.Contains(cell, "pon") || strings.Contains(cell, "tor") || strings.Contains(cell, "sre") || strings.Contains(cell, "rtek") || strings.Contains(cell, "pet") {
+			index = i + 1
+		}
+	}
+
+	date, err := time.Parse("2.1.2006", sel[index][0])
+	check(err)
+	return date
+}
+
+func isMenuValid(fileName string) bool {
+	csv, err := ioutil.ReadFile(fileName)
+	check(err)
+
+	if strings.Count(string(csv), ";") == 240 && (strings.Contains(strings.ToLower(string(csv)), "navadna") || strings.Contains(strings.ToLower(string(csv)), "Lunch")) {
+		return true
+	}
+	return false
 }
 
 func check(err error) {
