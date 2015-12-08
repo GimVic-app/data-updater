@@ -526,8 +526,6 @@ func processLunch(table [][]string, selNumbers []int) {
 			processLunchSel(table[num:selNumbers[i+1]])
 		}
 	}
-
-	fmt.Println("Parser done processing Lunch.\n")
 }
 
 func findDate(sel [][]string) time.Time {
@@ -548,7 +546,7 @@ func isMenuValid(fileName string) bool {
 	csv, err := ioutil.ReadFile(fileName)
 	check(err)
 
-	if strings.Count(string(csv), ";") == 240 && (strings.Contains(strings.ToLower(string(csv)), "navadna") || strings.Contains(strings.ToLower(string(csv)), "Lunch")) {
+	if strings.Count(string(csv), ";") == 240 && (strings.Contains(strings.ToLower(string(csv)), "navadna") || strings.Contains(strings.ToLower(string(csv)), "kosilo")) {
 		return true
 	}
 	return false
