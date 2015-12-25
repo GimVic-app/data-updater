@@ -27,7 +27,7 @@ func main() {
 	now.FirstDayMonday = true
 
 	if len(os.Args) <= 1 {
-		fmt.Println("Add argument sch or sub!")
+		fmt.Println("Add argument sch, sub or menu!")
 		os.Exit(1)
 	}
 	arg := os.Args[1]
@@ -38,7 +38,7 @@ func main() {
 	} else if arg == "menu" {
 		parseMenu(os.Args)
 	} else {
-		fmt.Println("Add argument sch or sub!")
+		fmt.Println("Add argument sch, sub or menu!")
 		os.Exit(1)
 	}
 }
@@ -546,7 +546,7 @@ func isMenuValid(fileName string) bool {
 	csv, err := ioutil.ReadFile(fileName)
 	check(err)
 
-	if strings.Count(string(csv), ";") == 240 && (strings.Contains(strings.ToLower(string(csv)), "navadna") || strings.Contains(strings.ToLower(string(csv)), "kosilo")) {
+	if strings.Count(string(csv), ";") == 320 && (strings.Contains(strings.ToLower(string(csv)), "navadna") || strings.Contains(strings.ToLower(string(csv)), "kosilo")) {
 		return true
 	}
 	return false
