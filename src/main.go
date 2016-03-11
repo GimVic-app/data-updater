@@ -60,30 +60,74 @@ func updateSubstitutions() {
 			//parsing normal substitutions
 			for _, substutution := range data.Substitutions {
 				for _, substututionLesson := range substutution.SubstitutionLessons {
-					values := "'" + parseSubstitutionsClass(substututionLesson.Class) + "', '" + substTeacherToSchTeacher(substututionLesson.Teacher) + "', '" + substTeacherToSchTeacher(substutution.AbsentTeacher) + "', '" + substututionLesson.Subject + "', '" + substututionLesson.Classroom + "', " + strconv.Itoa(substututionLesson.Lesson()) + ", '" + substututionLesson.Note + "', '" + data.DateStr + "'"
-					_, err = db.Exec("insert into substitutions(class, teacher, absent_teacher, subject, classroom, lesson, note, date) values (" + values + ");")
+					stmtIns, err := db.Prepare("insert into substitutions(class, teacher, absent_teacher, subject, classroom, lesson, note, date) values (?, ?, ?, ?, ?, ?, ?, ?);")
+					check(err)
+					defer stmtIns.Close()
+
+					_, err = stmtIns.Exec(
+						parseSubstitutionsClass(substututionLesson.Class),
+						substTeacherToSchTeacher(substututionLesson.Teacher),
+						substTeacherToSchTeacher(substutution.AbsentTeacher),
+						substututionLesson.Subject,
+						substututionLesson.Classroom,
+						strconv.Itoa(substututionLesson.Lesson()),
+						substututionLesson.Note,
+						data.DateStr,
+					)
 					check(err)
 				}
 			}
 
 			//parsing subject exchange
 			for _, exchange := range data.SubjectExchanges {
-				values := "'" + parseSubstitutionsClass(exchange.Class) + "', '" + substTeacherToSchTeacher(exchange.Teacher) + "', '" + exchange.Subject + "', '" + exchange.Classroom + "', " + strconv.Itoa(exchange.Lesson()) + ", '" + exchange.Note + "', '" + data.DateStr + "'"
-				_, err = db.Exec("insert into substitutions(class, teacher, subject, classroom, lesson, note, date) values (" + values + ");")
+				stmtIns, err := db.Prepare("insert into substitutions(class, teacher, subject, classroom, lesson, note, date) values (?, ?, ?, ?, ?, ?, ?);")
 				check(err)
+				defer stmtIns.Close()
+				_, err = stmtIns.Exec(
+					parseSubstitutionsClass(exchange.Class),
+					substTeacherToSchTeacher(exchange.Teacher),
+					exchange.Subject,
+					exchange.Classroom,
+					strconv.Itoa(exchange.Lesson()),
+					exchange.Note,
+					data.DateStr,
+				)
+				check(err)
+
 			}
 
 			//parsing lesson exchange
 			for _, exchange := range data.LessonExchanges {
-				values := "'" + parseSubstitutionsClass(exchange.Class) + "', '" + substTeacherToSchTeacher(exchange.Teachers()[1]) + "', '" + substTeacherToSchTeacher(exchange.Teachers()[0]) + "', '" + exchange.Subject() + "', '" + exchange.Classroom + "', " + strconv.Itoa(exchange.Lesson()) + ", '" + exchange.Note + "', '" + data.DateStr + "'"
-				_, err = db.Exec("insert into substitutions(class, teacher, absent_teacher, subject, classroom, lesson, note, date) values (" + values + ");")
+				stmtIns, err := db.Prepare("insert into substitutions(class, teacher, absent_teacher, subject, classroom, lesson, note, date) values (?, ?, ?, ?, ?, ?, ?, ?);")
+				check(err)
+				defer stmtIns.Close()
+				_, err = stmtIns.Exec(
+					parseSubstitutionsClass(exchange.Class),
+					substTeacherToSchTeacher(exchange.Teachers()[1]),
+					substTeacherToSchTeacher(exchange.Teachers()[0]),
+					exchange.Subject(),
+					exchange.Classroom,
+					strconv.Itoa(exchange.Lesson()),
+					exchange.Note,
+					data.DateStr,
+				)
 				check(err)
 			}
 
 			//parsing subject exchange
 			for _, exchange := range data.ClassroomExchanges {
-				values := "'" + parseSubstitutionsClass(exchange.Class) + "', '" + substTeacherToSchTeacher(exchange.Teacher) + "', '" + exchange.Subject + "', '" + exchange.Classroom + "', " + strconv.Itoa(exchange.Lesson()) + ", '" + exchange.Note + "', '" + data.DateStr + "'"
-				_, err = db.Exec("insert into substitutions(class, teacher, subject, classroom, lesson, note, date) values (" + values + ");")
+				stmtIns, err := db.Prepare("insert into substitutions(class, teacher, subject, classroom, lesson, note, date) values (?, ?, ?, ?, ?, ?, ?);")
+				check(err)
+				defer stmtIns.Close()
+				_, err = stmtIns.Exec(
+					parseSubstitutionsClass(exchange.Class),
+					substTeacherToSchTeacher(exchange.Teacher),
+					exchange.Subject,
+					exchange.Classroom,
+					strconv.Itoa(exchange.Lesson()),
+					exchange.Note,
+					data.DateStr,
+				)
 				check(err)
 			}
 		}
@@ -157,8 +201,20 @@ func updateSchedule() {
 			lesson, err := strconv.Atoi(lessonStr)
 			check(err)
 
-			_, err = db.Exec("insert into schedule(class, teacher, subject, classroom, day, lesson) values ('" + class + "', '" + teacher + "', '" + subject + "', '" + classroom + "', " + strconv.Itoa(day) + ", " + strconv.Itoa(lesson) + ");")
+
+			stmtIns, err := db.Prepare("insert into schedule(class, teacher, subject, classroom, day, lesson) values (?, ?, ?, ?, ?, ?);")
 			check(err)
+			defer stmtIns.Close()
+			_, err = stmtIns.Exec(
+				class,
+				teacher,
+				subject,
+				classroom,
+				strconv.Itoa(day),
+				strconv.Itoa(lesson),
+			)
+			check(err)
+
 		}
 
 		//classes parsing
@@ -171,7 +227,11 @@ func updateSchedule() {
 			if len(class) == 2 {
 				main = "1"
 			}
-			_, err = db.Exec("insert into classes(class, main) values ('" + class + "', " + main + ");")
+
+			stmtIns, err := db.Prepare("insert into classes(class, main) values (?, ?);")
+			check(err)
+			defer stmtIns.Close()
+			_, err = stmtIns.Exec(class, main)
 			check(err)
 		}
 
@@ -181,7 +241,11 @@ func updateSchedule() {
 		check(err)
 		for _, line := range lines {
 			teacher := extractValueFromLine(line, true)
-			_, err = db.Exec("insert into teachers(teacher) values ('" + teacher + "');")
+
+			stmtIns, err := db.Prepare("insert into teachers(teacher) values (?);")
+			check(err)
+			defer stmtIns.Close()
+			_, err = stmtIns.Exec(teacher)
 			check(err)
 		}
 
