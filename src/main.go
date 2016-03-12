@@ -139,7 +139,7 @@ func updateSubstitutions() {
 
 func parseSubstitutionsClass(original string) string {
 	if len(original) > 4 && strings.Contains(original, "-") {
-		original = original[:strings.Index(original, "-")-1]
+		original = original[:strings.Index(original, "-") - 1]
 	}
 	original = strings.Replace(original, " ", "", -1)
 	original = strings.Replace(original, ".", "", -1)
@@ -176,9 +176,9 @@ func updateSchedule() {
 	all := getTextFromUrl("https://dl.dropboxusercontent.com/u/16258361/urnik/data.js")
 	allHash := hash(all)
 	if isNew("schedule", allHash) {
-		scheduleDataStr := all[strings.Index(all, "podatki[0][0]") : strings.Index(all, "razredi")-1]
-		classesDataStr := all[strings.Index(all, "razredi") : strings.Index(all, "ucitelji")-1]
-		teachersDataStr := all[strings.Index(all, "ucitelji") : strings.Index(all, "ucilnice")-1]
+		scheduleDataStr := all[strings.Index(all, "podatki[0][0]") : strings.Index(all, "razredi") - 1]
+		classesDataStr := all[strings.Index(all, "razredi") : strings.Index(all, "ucitelji") - 1]
+		teachersDataStr := all[strings.Index(all, "ucitelji") : strings.Index(all, "ucilnice") - 1]
 
 		//schedule data parsing
 		scheduleSections := strings.Split(scheduleDataStr, ";")
@@ -200,7 +200,6 @@ func updateSchedule() {
 			check(err)
 			lesson, err := strconv.Atoi(lessonStr)
 			check(err)
-
 
 			stmtIns, err := db.Prepare("insert into schedule(class, teacher, subject, classroom, day, lesson) values (?, ?, ?, ?, ?, ?);")
 			check(err)
@@ -259,7 +258,7 @@ func updateSchedule() {
 func parseMenu(args []string) {
 	//check for file argument
 	if len(os.Args) < 3 {
-		fmt.Println("Specifiy the file!")
+		fmt.Println("Specify the file!")
 	} else {
 		fileArg := os.Args[2]
 
@@ -313,7 +312,7 @@ func clearUselessScheduleLines(lines []string) []string {
 	if !strings.HasPrefix(lines[0], "podatki") {
 		start = 1
 	}
-	if strings.Contains(lines[len(lines)-1], "new Array(") {
+	if strings.Contains(lines[len(lines) - 1], "new Array(") {
 		stop--
 	}
 	return lines[start:stop]
@@ -321,9 +320,9 @@ func clearUselessScheduleLines(lines []string) []string {
 
 func extractValueFromLine(line string, quoted bool) string {
 	if quoted {
-		return line[strings.Index(line, "\"")+1 : strings.LastIndex(line, "\"")]
+		return line[strings.Index(line, "\"") + 1 : strings.LastIndex(line, "\"")]
 	} else {
-		return line[strings.LastIndex(line, " ")+1 : len(line)-1]
+		return line[strings.LastIndex(line, " ") + 1 : len(line) - 1]
 	}
 }
 
@@ -464,14 +463,14 @@ var randSrc = rand.NewSource(time.Now().UnixNano())
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+	letterIdxMask = 1 << letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
 func randStr(n int) string {
 	b := make([]byte, n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, randSrc.Int63(), letterIdxMax; i >= 0; {
+	for i, cache, remain := n - 1, randSrc.Int63(), letterIdxMax; i >= 0; {
 		if remain == 0 {
 			cache, remain = randSrc.Int63(), letterIdxMax
 		}
@@ -492,7 +491,7 @@ func getSectionNumbers(csv [][]string) ([]int, bool) {
 	var Snack bool
 
 	for i, line := range csv {
-		if strings.Contains(strings.ToLower(line[1]), "navadna") || strings.Contains(strings.ToLower(line[1]), "Lunch") {
+		if strings.Contains(strings.ToLower(line[1]), "navadna") || strings.Contains(strings.ToLower(line[1]), "kosilo") {
 			result = append(result, i)
 			if strings.Contains(line[1], "navadna") {
 				Snack = true
@@ -506,10 +505,15 @@ func getSectionNumbers(csv [][]string) ([]int, bool) {
 func processSnack(table [][]string, selNumbers []int) {
 
 	for i, num := range selNumbers {
-		if i+1 == len(selNumbers) {
+		//to make sure not to parse more than 5 days
+		if i > 4 {
+			break;
+		}
+
+		if i + 1 == len(selNumbers) {
 			processSnackSel(table[num:len(table)])
 		} else {
-			processSnackSel(table[num:selNumbers[i+1]])
+			processSnackSel(table[num:selNumbers[i + 1]])
 		}
 	}
 }
@@ -555,6 +559,7 @@ func processSnackSel(sel [][]string) {
 }
 
 func processLunchSel(sel [][]string) {
+
 	date := findDate(sel)
 
 	var normal, veg string
@@ -577,17 +582,21 @@ func processLunchSel(sel [][]string) {
 	check(err)
 	defer con.Close()
 
-	_, err = con.Exec("insert into lunch (date, normal, veg) values (?, ?)", date, normal, veg)
+	_, err = con.Exec("insert into lunch (date, normal, veg) values (?, ?, ?)", date, normal, veg)
 	check(err)
 
 }
 
 func processLunch(table [][]string, selNumbers []int) {
 	for i, num := range selNumbers {
-		if i+1 == len(selNumbers) {
+		if i + 1 == len(selNumbers) {
+			//to make sure not to parse more than 5 days
+			if i > 4 {
+				break;
+			}
 			processLunchSel(table[num:len(table)])
 		} else {
-			processLunchSel(table[num:selNumbers[i+1]])
+			processLunchSel(table[num:selNumbers[i + 1]])
 		}
 	}
 }
@@ -610,7 +619,8 @@ func isMenuValid(fileName string) bool {
 	csv, err := ioutil.ReadFile(fileName)
 	check(err)
 
-	if strings.Count(string(csv), ";") == 320 && (strings.Contains(strings.ToLower(string(csv)), "navadna") || strings.Contains(strings.ToLower(string(csv)), "kosilo")) {
+	//if strings.Count(string(csv), ";") == 240 && (strings.Contains(strings.ToLower(string(csv)), "navadna") || strings.Contains(strings.ToLower(string(csv)), "kosilo")) {
+	if (strings.Contains(strings.ToLower(string(csv)), "navadna") || strings.Contains(strings.ToLower(string(csv)), "kosilo")) {
 		return true
 	}
 	return false
@@ -672,22 +682,22 @@ type ClassroomExchange struct {
 }
 
 func (s SubstitutionLesson) Lesson() int {
-	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
+	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr) - 1])
 	check(err)
 	return result
 }
 func (s SubjectExchange) Lesson() int {
-	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
+	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr) - 1])
 	check(err)
 	return result
 }
 func (s LessonExchange) Lesson() int {
-	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
+	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr) - 1])
 	check(err)
 	return result
 }
 func (s ClassroomExchange) Lesson() int {
-	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr)-1])
+	result, err := strconv.Atoi(s.LessonStr[:len(s.LessonStr) - 1])
 	check(err)
 	return result
 }
@@ -701,5 +711,5 @@ func (s LessonExchange) Teachers() []string {
 }
 
 func (s LessonExchange) Subject() string {
-	return s.SubjectExchange[strings.LastIndex(s.SubjectExchange, "-> ")+3:]
+	return s.SubjectExchange[strings.LastIndex(s.SubjectExchange, "-> ") + 3:]
 }
