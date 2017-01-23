@@ -173,7 +173,7 @@ func getSubstitutionsForDate(date time.Time) SubstitutionsStruct {
 
 func updateSchedule() {
 	//text gets downloaded and splitet into relevant parts
-	all := getTextFromUrl("https://dl.dropboxusercontent.com/u/16258361/urnik/data.js")
+	all := getTextFromUrl("http://old.gimvic.org/urnik/data.js")
 	allHash := hash(all)
 	if isNew("schedule", allHash) {
 		scheduleDataStr := all[strings.Index(all, "podatki[0][0]") : strings.Index(all, "razredi") - 1]
